@@ -16,9 +16,23 @@ if [ -f /etc/os-release ]; then
     OS_NAME="${ID}"
     OS_VERSION="${VERSION_ID}"
     echo "✓ Detected OS: ${PRETTY_NAME}"
+
+    # Special handling for Raspberry Pi OS detection
+    if [ -f /proc/device-tree/model ]; then
+        RPI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+        if [[ "$RPI_MODEL" == *"Raspberry Pi"* ]]; then
+            echo "✓ Raspberry Pi detected: $RPI_MODEL"
+            IS_RPI=1
+        else
+            IS_RPI=0
+        fi
+    else
+        IS_RPI=0
+    fi
 else
     echo "⚠ Warning: Could not detect OS. Proceeding anyway..."
     OS_NAME="unknown"
+    IS_RPI=0
 fi
 
 # Check architecture
@@ -43,17 +57,40 @@ echo ""
 if [[ "$OS_NAME" == "debian" ]] || [[ "$OS_NAME" == "ubuntu" ]] || [[ "$OS_NAME" == "raspbian" ]]; then
     echo "Installing lastlog2 for Debian/Ubuntu/Raspberry Pi OS..."
 
-    # Check if running with sudo privileges
-    if [ "$EUID" -ne 0 ]; then
-        echo "Note: This requires sudo privileges for package installation."
-        sudo apt update
-        sudo apt install -y lastlog2
+    # Check if lastlog2 is already installed
+    if command -v lastlog2 &> /dev/null; then
+        echo "✓ lastlog2 already installed"
     else
-        apt update
-        apt install -y lastlog2
+        # Check if running with sudo privileges
+        if [ "$EUID" -ne 0 ]; then
+            echo "Note: This requires sudo privileges for package installation."
+
+            # Raspberry Pi optimization: Use quieter apt flags to reduce output
+            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "armv7l" ]]; then
+                echo "  Detected ARM architecture - using optimized installation..."
+                sudo apt-get update -qq > /dev/null 2>&1
+                sudo apt-get install -y -qq lastlog2 > /dev/null 2>&1 && \
+                    echo "✓ lastlog2 installed successfully" || \
+                    echo "⚠ Warning: lastlog2 installation had issues, but script will continue"
+            else
+                sudo apt update
+                sudo apt install -y lastlog2
+            fi
+        else
+            # Running as root
+            if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "armv7l" ]]; then
+                apt-get update -qq > /dev/null 2>&1
+                apt-get install -y -qq lastlog2 > /dev/null 2>&1 && \
+                    echo "✓ lastlog2 installed successfully" || \
+                    echo "⚠ Warning: lastlog2 installation had issues, but script will continue"
+            else
+                apt update
+                apt install -y lastlog2
+            fi
+        fi
     fi
 
-    echo "✓ Dependencies installed"
+    echo "✓ Dependencies check complete"
 else
     echo "⚠ Non-Debian system detected. Skipping lastlog2 installation."
     echo "  The script will work with legacy 'lastlog' if available."
@@ -142,6 +179,16 @@ echo "  1. Type 'report' to run the machine report anytime"
 echo "  2. Open a new terminal to see it run automatically"
 echo "  3. Customize by editing: nano ~/.machine_report.sh"
 echo ""
+
+# Raspberry Pi specific tips
+if [ "$IS_RPI" -eq 1 ]; then
+    echo "Raspberry Pi Specific Notes:"
+    echo "  • CPU frequency may show blank - this is normal on some RPi models"
+    echo "  • Script optimized for ARM64 architecture"
+    echo "  • Perfect for monitoring your Pi over SSH!"
+    echo ""
+fi
+
 echo "Documentation:"
 echo "  • README.md - Full documentation"
 echo "  • CLAUDE.md - Claude Code automation guide"
@@ -149,6 +196,16 @@ echo ""
 echo "Installed to: $TARGET_FILE"
 echo "Configured in: $BASHRC"
 echo ""
+
+# Customization suggestions for Raspberry Pi
+if [ "$IS_RPI" -eq 1 ]; then
+    echo "Raspberry Pi Customization Tips:"
+    echo "  • Edit line 15 to change header: report_title=\"YOUR RPI NAME\""
+    echo "  • Consider showing temperature (requires vcgencmd)"
+    echo "  • Check CLAUDE.md for customization guidance"
+    echo ""
+fi
+
 echo "To uninstall:"
 echo "  rm ~/.machine_report.sh"
 echo "  # Then manually remove lines from ~/.bashrc"
