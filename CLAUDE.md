@@ -142,17 +142,17 @@ bash -c "source ~/.bashrc && type -a report"
 When users ask to customize the report, guide them to edit `~/.machine_report.sh` at these locations:
 
 ### Change Header Text
-**Line 15**: `report_title="UNITED STATES GRAPHICS COMPANY"`
+**Line 20**: `report_title="UNITED STATES GRAPHICS COMPANY"`
 
 Example:
 ```bash
 nano ~/.machine_report.sh
-# Change line 15 to:
+# Change line 20 to:
 report_title="YOUR CUSTOM HEADER"
 ```
 
 ### Change ZFS Pool Name
-**Line 18**: `zfs_filesystem="zroot/ROOT/os"`
+**Line 23**: `zfs_filesystem="zroot/ROOT/os"`
 
 Example:
 ```bash
@@ -161,16 +161,17 @@ zfs_filesystem="tank/ROOT/default"
 ```
 
 ### Adjust Column Widths
-**Lines 6-11**: Global width variables
+**Lines 11-16**: Global width variables
 ```bash
 MIN_NAME_LEN=5
 MAX_NAME_LEN=13
 MIN_DATA_LEN=20
 MAX_DATA_LEN=32
+BORDERS_AND_PADDING=7
 ```
 
 ### Change Disk Partition (Non-ZFS)
-**Line 293**: `root_partition="/"`
+**Line 524**: `root_partition="/"`
 
 ## Troubleshooting
 
@@ -187,16 +188,16 @@ The script will automatically detect and use it. No code changes needed.
 
 **Explanation**: This is normal on some ARM systems. The script continues working correctly; this field just won't be populated.
 
-**If user wants to fix**: Guide them to check `/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq` and potentially modify line 266 in the script.
+**If user wants to fix**: Guide them to check `/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq` and potentially modify line 394 in the script.
 
 ### Issue: Wrong disk partition shown
 
 **For non-ZFS systems**:
-- Edit line 293: Change `root_partition="/"` to desired mount point
+- Edit line 524: Change `root_partition="/"` to desired mount point
 - Example: `root_partition="/home"` or `root_partition="/mnt/data"`
 
 **For ZFS systems**:
-- Edit line 18: Change `zfs_filesystem="zroot/ROOT/os"` to their pool
+- Edit line 23: Change `zfs_filesystem="zroot/ROOT/os"` to their pool
 - Use `zfs list` to find the correct filesystem name
 
 ### Issue: Script runs but doesn't appear on login
@@ -227,11 +228,36 @@ RealEmmettS-usgc-machine-report/
 
 The `machine_report.sh` script is organized into sections:
 
-1. **Lines 1-19**: Global variables and configuration
-2. **Lines 21-232**: Utility functions (max_length, bar_graph, get_ip_addr, PRINT_*)
-3. **Lines 234-299**: Data collection (OS, network, CPU, disk, memory)
-4. **Lines 301-338**: Last login detection (lastlog2/lastlog fallback logic)
-5. **Lines 336-384**: Output rendering (PRINT_* function calls)
+1. **Lines 1-9**: Header comments and license
+2. **Lines 10-23**: Global variables and configuration
+3. **Lines 25-68**: Cross-platform compatibility framework (detect_os, command_exists, file_readable, is_ipv4, OS_TYPE detection, Bash version check)
+4. **Lines 70-284**: Utility functions (max_length, set_current_len, PRINT_* functions, bar_graph, get_ip_addr)
+5. **Lines 286-313**: OS information detection (Linux and macOS support)
+6. **Lines 315-357**: Network information (hostname, IPs, DNS, user)
+7. **Lines 359-423**: CPU information (cross-platform: lscpu, sysctl, /proc)
+8. **Lines 425-439**: Load averages (cross-platform: /proc/loadavg, sysctl, uptime)
+9. **Lines 441-493**: Memory information (cross-platform: /proc/meminfo, vm_stat)
+10. **Lines 495-549**: Disk information (ZFS and standard filesystem support)
+11. **Lines 551-617**: Last login detection (lastlog2/lastlog fallback) and system uptime (cross-platform)
+12. **Lines 619-633**: Graph generation (CPU load, memory, disk)
+13. **Lines 635-684**: Output rendering (PRINT_* function calls)
+
+### Cross-Platform Support (v1.2.0+)
+
+The script now includes a **cross-platform compatibility framework** that automatically detects the OS and uses appropriate commands:
+
+**Helper Functions (Lines 30-55)**:
+- `detect_os()` - Returns "macos", "linux", "bsd", or "unknown"
+- `command_exists()` - Safely checks if a command is available
+- `file_readable()` - Checks if a file exists and is readable
+- `is_ipv4()` - Validates IPv4 address format
+
+**Platform-Specific Commands**:
+- **macOS**: Uses `sysctl`, `vm_stat`, `scutil`, `sw_vers` for native macOS data
+- **Linux**: Uses `lscpu`, `/proc/meminfo`, `/proc/cpuinfo`, `lastlog2`/`lastlog`
+- **BSD**: Partial support with fallback mechanisms
+
+**Key Design Pattern**: The script checks `$OS_TYPE` variable throughout and branches to platform-specific implementations. This maintains the single-file philosophy while supporting multiple platforms.
 
 ## Important Implementation Notes
 
@@ -259,17 +285,36 @@ Look for:
 
 - **Upstream**: usgraphics/usgc-machine-report (original)
 - **This fork**: RealEmmettS/usgc-machine-report (enhanced)
-- **Current version**: v1.1.0-RealEmmettS (2025-11-10)
+- **Current version**: v1.2.0-RealEmmettS (2025-11-10) - PRODUCTION READY
 
 ## Development Workflow
 
 This is a fork. When making changes:
 
-1. **Test on Raspberry Pi OS** (primary target)
+1. **Test on multiple platforms** (Linux, macOS, Raspberry Pi)
 2. **Maintain single-file design** (no modules/dependencies)
-3. **Update README.md** with changes
-4. **Update CHANGELOG** section in README
-5. **Tag releases** with `vX.Y.Z-RealEmmettS` format
+3. **Use helper functions** (`command_exists`, `file_readable`) for safe checks
+4. **Update README.md** with changes
+5. **Update CHANGELOG** section in README
+6. **Update this CLAUDE.md** with any line number changes
+7. **Tag releases** with `vX.Y.Z-RealEmmettS` format
+
+### Testing Checklist
+
+When making code changes, test on:
+- ✅ Linux (Debian/Ubuntu) with modern tools (lastlog2)
+- ✅ Linux (older systems) with legacy tools (lastlog)
+- ✅ Raspberry Pi OS (ARM64) - primary target
+- ✅ macOS (both Apple Silicon and Intel)
+- ⚠️ BSD (optional - best effort support)
+
+**Key areas to verify**:
+- OS detection works correctly
+- CPU info displays (especially frequency on ARM)
+- Memory stats calculate properly (different on macOS)
+- Disk usage shows correctly (ZFS vs standard filesystems)
+- Last login detection (lastlog2 vs lastlog vs unavailable)
+- No bash errors or unhandled edge cases
 
 ## License
 
@@ -288,9 +333,14 @@ When helping users, respect the license terms and maintain attribution to US Gra
 ## Quick Reference Commands
 
 ```bash
-# Install from scratch
+# Install from scratch (RECOMMENDED - uses install.sh)
+cd ~/git-projects && \
+gh repo clone RealEmmettS/usgc-machine-report && \
+cd RealEmmettS-usgc-machine-report && \
+./install.sh
+
+# Manual installation (advanced)
 cd ~/git-projects && gh repo clone RealEmmettS/usgc-machine-report && \
-sudo apt install -y lastlog2 && \
 cp ~/git-projects/RealEmmettS-usgc-machine-report/machine_report.sh ~/.machine_report.sh && \
 chmod +x ~/.machine_report.sh && \
 cat >> ~/.bashrc << 'EOF'
@@ -306,9 +356,14 @@ EOF
 
 # Run the report
 ~/.machine_report.sh
+# or simply:
+report
 
 # Edit for customization
 nano ~/.machine_report.sh
+
+# Test across platforms
+./machine_report.sh  # Should work on Linux, macOS, BSD
 
 # Uninstall
 rm ~/.machine_report.sh
