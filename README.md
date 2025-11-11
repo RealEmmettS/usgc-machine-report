@@ -177,6 +177,42 @@ cd RealEmmettS-usgc-machine-report && ./install.sh
 - To install newer Bash: `brew install bash`
 - Script automatically detects macOS and uses appropriate commands
 
+### 🐚 zsh Installation (macOS Default Shell)
+
+**Modern macOS (Catalina 10.15+) uses zsh by default**, not bash. If you're using zsh, follow these instructions:
+
+**Quick Install for zsh:**
+
+```bash
+# Clone and install the script
+cd ~/Downloads && git clone https://github.com/RealEmmettS/usgc-machine-report.git && \
+cp ~/Downloads/usgc-machine-report/machine_report.sh ~/.machine_report.sh && \
+chmod +x ~/.machine_report.sh
+
+# Add to .zshrc (not .bashrc!)
+cat >> ~/.zshrc << 'EOF'
+
+# Machine Report alias - run anytime with 'report' command
+alias report='~/.machine_report.sh'
+
+# Run Machine Report only when in interactive mode
+if [[ $- == *i* ]]; then
+    ~/.machine_report.sh
+fi
+EOF
+
+# Clean up cloned repo (optional)
+rm -rf ~/Downloads/usgc-machine-report
+
+echo "✅ Installation complete! Open a new terminal or type: source ~/.zshrc"
+```
+
+**Important zsh Notes:**
+- ✅ Use `~/.zshrc` instead of `~/.bashrc`
+- ✅ The script works identically in zsh - no code changes needed
+- ✅ Test with: `zsh -c "source ~/.zshrc && report"`
+- ℹ️ To check your shell: `echo $SHELL` (should show `/bin/zsh`)
+
 ---
 
 ## 📦 Quick Install (Manual - Raspberry Pi OS / Debian)
