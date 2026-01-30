@@ -20,6 +20,58 @@
     Tested  : Windows PowerShell 5.1 and PowerShell 7+
 #>
 
+[CmdletBinding()]
+param(
+    [Alias('h', '?')]
+    [switch]$Help,
+
+    [Alias('v')]
+    [switch]$Version,
+
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
+)
+
+$script:TR200Version = '2.0.1'
+
+# Handle Unix-style --flags (PowerShell doesn't natively support double-dash)
+if ($RemainingArgs) {
+    foreach ($arg in $RemainingArgs) {
+        if ($arg -eq '--help' -or $arg -eq '-help') { $Help = $true }
+        if ($arg -eq '--version' -or $arg -eq '-version') { $Version = $true }
+    }
+}
+
+function Show-TR200Help {
+    $helpText = @"
+
+TR-200 Machine Report v$script:TR200Version
+
+Usage: TR-200-MachineReport.ps1 [options]
+       report [options]
+
+Displays system information in a formatted table with Unicode box-drawing.
+
+Options:
+  --help, -h        Show this help message
+  --version, -v     Show version number
+
+When installed via npm (tr200):
+  tr200             Run the machine report
+  tr200 --help      Show help (includes install/uninstall options)
+  tr200 --install   Set up auto-run on terminal startup
+  tr200 --uninstall Remove auto-run from shell startup
+
+When installed via install_windows.ps1:
+  report            Run the machine report (works in CMD and PowerShell)
+  uninstall         Remove TR-200 Machine Report
+
+More info: https://github.com/RealEmmettS/usgc-machine-report
+
+"@
+    Write-Host $helpText
+}
+
 #region Encoding and box-drawing configuration
 
 # Ensure UTF-8 output for proper box-drawing characters on Windows PowerShell 5.1
@@ -60,16 +112,20 @@ function New-TR200BarGraph {
         [int]   $Width
     )
 
+    # Convert chars to strings for multiplication (PS 5.1 compatibility)
+    $barFilled = [string]$TR200Chars.BarFilled
+    $barEmpty  = [string]$TR200Chars.BarEmpty
+
     if ($Total -le 0) {
-        return ($TR200Chars.BarEmpty * [math]::Max($Width, 1))
+        return ($barEmpty * [math]::Max($Width, 1))
     }
 
     $percent    = [math]::Max([math]::Min(($Used / $Total) * 100.0, 100.0), 0.0)
     $filledBars = [int]([math]::Round(($percent / 100.0) * $Width))
     if ($filledBars -gt $Width) { $filledBars = $Width }
 
-    $filled = $TR200Chars.BarFilled * $filledBars
-    $empty  = $TR200Chars.BarEmpty * ([math]::Max($Width,0) - $filledBars)
+    $filled = $barFilled * $filledBars
+    $empty  = $barEmpty * ([math]::Max($Width,0) - $filledBars)
     return "$filled$empty"
 }
 
@@ -406,12 +462,17 @@ function Show-TR200Report {
     # Total inner width of table (excluding outer borders)
     $innerWidth = 2 + $labelWidth + 3 + $dataWidth + 2  # "│ <label> │ <value> │"
 
+    # Convert chars to strings for multiplication (PS 5.1 compatibility)
+    $hzLine = [string]$TR200Chars.Horizontal
+    $vtLine = [string]$TR200Chars.Vertical
+    $tDown  = [string]$TR200Chars.TDown
+
     # Helper to write the top header and borders
     function Write-TR200TopHeader {
         param()
-        $top = $TR200Chars.TopLeft + ($TR200Chars.Horizontal * ($innerWidth)) + $TR200Chars.TopRight
+        $top = $TR200Chars.TopLeft + ($hzLine * ($innerWidth)) + $TR200Chars.TopRight
         Write-Host $top
-        $mid = $TR200Chars.TRight + ($TR200Chars.TDown * ($innerWidth)) + $TR200Chars.TLeft
+        $mid = $TR200Chars.TRight + ($tDown * ($innerWidth)) + $TR200Chars.TLeft
         Write-Host $mid
     }
 
@@ -427,7 +488,7 @@ function Show-TR200Report {
             if ($i -eq ($labelWidth + 2)) {
                 $line += $mid
             } else {
-                $line += $TR200Chars.Horizontal
+                $line += $hzLine
             }
         }
         $line += $right
@@ -436,7 +497,7 @@ function Show-TR200Report {
 
     function Write-TR200Footer {
         param()
-        $bottom = $TR200Chars.BottomLeft + ($TR200Chars.Horizontal * ($innerWidth)) + $TR200Chars.BottomRight
+        $bottom = $TR200Chars.BottomLeft + ($hzLine * ($innerWidth)) + $TR200Chars.BottomRight
         Write-Host $bottom
     }
 
@@ -450,7 +511,9 @@ function Show-TR200Report {
         $padding = $totalWidth - $text.Length
         $leftPad  = [int]([math]::Floor($padding / 2.0))
         $rightPad = $padding - $leftPad
-        Write-Host ("{0}{1}{2}{3}{4}" -f $TR200Chars.Vertical, ' ' * $leftPad, $text, ' ' * $rightPad, $TR200Chars.Vertical)
+        $leftSpace  = ' ' * $leftPad
+        $rightSpace = ' ' * $rightPad
+        Write-Host ($vtLine + $leftSpace + $text + $rightSpace + $vtLine)
     }
 
     function Write-TR200Row {
@@ -476,7 +539,7 @@ function Show-TR200Report {
             $val = $val.PadRight($dataWidth)
         }
 
-        Write-Host ("{0} {1} {2} {3} {4}" -f $TR200Chars.Vertical, $lbl, $TR200Chars.Vertical, $val, $TR200Chars.Vertical)
+        Write-Host ($vtLine + ' ' + $lbl + ' ' + $vtLine + ' ' + $val + ' ' + $vtLine)
     }
 
     # Render table
@@ -501,11 +564,17 @@ function Show-TR200Report {
 
 #endregion Rendering
 
-# If the script is executed directly (not dot-sourced), show the report immediately
+# If the script is executed directly (not dot-sourced), handle args or show the report
 try {
     if ($MyInvocation.InvocationName -ne '.') {
         # Only auto-run when invoked as a script, not when dot-sourced from a profile
-        Show-TR200Report
+        if ($Help) {
+            Show-TR200Help
+        } elseif ($Version) {
+            Write-Host $script:TR200Version
+        } else {
+            Show-TR200Report
+        }
     }
 } catch {
     Write-Error $_

@@ -7,6 +7,49 @@
 # Supports: Linux (all major distros), macOS 10.13+, partial BSD support
 # Requires: Bash 4.0+ (macOS users: brew install bash)
 
+TR200_VERSION="2.0.1"
+
+# Handle command-line arguments
+show_help() {
+    cat << 'EOF'
+
+TR-200 Machine Report v2.0.1
+
+Usage: machine_report.sh [options]
+       report [options]
+
+Displays system information in a formatted table with Unicode box-drawing.
+
+Options:
+  --help, -h        Show this help message
+  --version, -v     Show version number
+
+When installed via npm (tr200):
+  tr200             Run the machine report
+  tr200 --help      Show help (includes install/uninstall options)
+  tr200 --install   Set up auto-run on terminal startup
+  tr200 --uninstall Remove auto-run from shell startup
+
+When installed via install.sh:
+  report            Run the machine report
+  ~/.machine_report.sh  Run directly
+
+More info: https://github.com/RealEmmettS/usgc-machine-report
+
+EOF
+}
+
+case "${1:-}" in
+    --help|-h)
+        show_help
+        exit 0
+        ;;
+    --version|-v)
+        echo "$TR200_VERSION"
+        exit 0
+        ;;
+esac
+
 # Global variables
 MIN_NAME_LEN=5
 MAX_NAME_LEN=13
