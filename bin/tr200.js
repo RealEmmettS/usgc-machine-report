@@ -100,9 +100,10 @@ function getProfilePaths() {
             path.join(homeDir, 'Documents', 'WindowsPowerShell', 'Microsoft.PowerShell_profile.ps1')
         ];
     } else if (isMac) {
+        // macOS: only .zshrc needed (zsh is default since Catalina)
+        // SSH login sources .zshrc for interactive sessions
         return [
-            path.join(homeDir, '.zshrc'),
-            path.join(homeDir, '.bash_profile')
+            path.join(homeDir, '.zshrc')
         ];
     } else {
         // Linux/BSD - only .bashrc needed
@@ -342,7 +343,7 @@ function runReport() {
 // Handle help flag
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log(`
-TR-200 Machine Report v2.0.5
+TR-200 Machine Report v2.0.6
 
 Usage: tr200 [options]
        report [options]
@@ -362,7 +363,7 @@ More info: https://github.com/RealEmmettS/usgc-machine-report
 
 // Handle version flag
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    console.log('2.0.5');
+    console.log('2.0.6');
     process.exit(0);
 }
 

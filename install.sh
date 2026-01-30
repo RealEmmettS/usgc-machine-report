@@ -411,56 +411,23 @@ EOF
 fi
 
 # ============================================================================
-# CONFIGURE LOGIN SHELL (.zprofile for macOS zsh login shells)
+# NOTE ON LOGIN SHELL PROFILES
 # ============================================================================
 echo ""
-echo "Configuring login shell profiles..."
+echo "Login shell profile note:"
 
-# NOTE: On Linux, we do NOT add to .profile because:
-# 1. .profile typically sources .bashrc on Debian/Ubuntu/Raspberry Pi OS
-# 2. .bashrc already has the auto-run for interactive shells
-# 3. Adding to both causes duplicate reports on SSH login
+# We intentionally do NOT add auto-run to login profiles (.profile, .zprofile, .bash_profile)
+# because this causes duplicate reports:
 #
-# On macOS, zsh does NOT source .zshrc for login shells, so we need .zprofile
+# Linux: .profile sources .bashrc, so .bashrc alone handles SSH login
+# macOS: .zprofile + .zshrc both run on SSH, so .zshrc alone is sufficient
+#
+# The auto-run in .bashrc/.zshrc handles all interactive sessions including SSH.
 
 if [ "$OS_TYPE" = "macos" ]; then
-    LOGIN_PROFILE="$HOME/.zprofile"
-
-    if grep -q "# TR-200 Machine Report" "$LOGIN_PROFILE" 2>/dev/null; then
-        echo "✓ $LOGIN_PROFILE already configured"
-    else
-        echo "Adding TR-200 login configuration to $LOGIN_PROFILE..."
-        cat >> "$LOGIN_PROFILE" << 'EOF'
-
-# TR-200 Machine Report - run on login (SSH/console)
-if [ -x "$HOME/.machine_report.sh" ]; then
-    clear
-    "$HOME/.machine_report.sh"
-fi
-EOF
-        echo "✓ $LOGIN_PROFILE configured"
-    fi
+    echo "✓ macOS: .zshrc handles SSH login (interactive zsh session)"
 else
     echo "✓ Linux: .bashrc handles SSH login (via .profile sourcing .bashrc)"
-fi
-
-# Also configure .bash_profile for bash login shells on macOS
-if [ "$OS_TYPE" = "macos" ]; then
-    BASH_PROFILE="$HOME/.bash_profile"
-    if [ -f "$BASH_PROFILE" ] || [ ! -f "$HOME/.profile" ]; then
-        if ! grep -q "# TR-200 Machine Report" "$BASH_PROFILE" 2>/dev/null; then
-            echo "Adding TR-200 login configuration to $BASH_PROFILE..."
-            cat >> "$BASH_PROFILE" << 'EOF'
-
-# TR-200 Machine Report - run on bash login
-if [ -x "$HOME/.machine_report.sh" ]; then
-    clear
-    "$HOME/.machine_report.sh"
-fi
-EOF
-            echo "✓ $BASH_PROFILE configured"
-        fi
-    fi
 fi
 
 # ============================================================================
