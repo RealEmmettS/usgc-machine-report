@@ -19,6 +19,7 @@ This version includes major enhancements:
 - ✅ **lastlog2 Support**: Works with modern Debian/Raspberry Pi OS (Trixie+)
 - ✅ **Non-ZFS Support**: Works on standard ext4/APFS/NTFS/other filesystems
 - ✅ **Raspberry Pi Tested**: Fully working on ARM64 systems
+- ✅ **Windows Tested**: Native PowerShell implementation, fully working
 
 ### Status Update
 
@@ -29,6 +30,7 @@ This version includes major enhancements:
 **✅ This fork is stable and tested on:**
 - Raspberry Pi OS (Debian Trixie)
 - Standard Debian systems (with or without ZFS)
+- Windows 10/11 (PowerShell 5.1+ and PowerShell 7+)
 - Non-root user installations
 - ARM64 and x86_64 architectures
 
@@ -57,6 +59,7 @@ Tabular, short, clear and concise. The tool's job is to inform the user of the c
 - VMWare Hypervisor
 
 ### Now Also Works On
+- **Windows 10/11** (native PowerShell implementation)
 - **Raspberry Pi** (ARM64 Cortex-A72)
 - **Standard Linux** filesystems (ext4, btrfs, xfs, etc.)
 - **Bare metal** and virtualized systems
@@ -224,16 +227,17 @@ nano ~/.machine_report.sh
 
 ## ✅ Compatibility Matrix
 
-| System | Architecture | Filesystem | Bash | Status |
-|--------|-------------|------------|------|--------|
-| **Raspberry Pi OS (Trixie)** | ARM64 | ext4 | 5.x | ✅ **Tested** |
-| **macOS Sonoma/Ventura** | ARM64/x86_64 | APFS | 4.0+ | ✅ **Full Support** |
-| macOS (default Bash 3.2) | ARM64/x86_64 | APFS | 3.2 | ⚠️ Works with warnings |
-| Debian 13 (Trixie) | x86_64 | ext4/ZFS | 5.x | ✅ Working |
-| Debian 12 (Bookworm) | x86_64 | ext4/ZFS | 5.x | ✅ Working |
-| Ubuntu 24.04+ | x86_64 | ext4/ZFS | 5.x | ✅ Should work |
-| Fedora/RHEL 9 | x86_64 | ext4/xfs/btrfs | 5.x | ✅ Should work |
-| Arch/Manjaro | x86_64 | ext4/btrfs | 5.x | ✅ Should work |
+| System | Architecture | Filesystem | Shell | Status |
+|--------|-------------|------------|-------|--------|
+| **Windows 10/11** | x86_64 | NTFS | PowerShell 5.1+/7+ | ✅ **Tested** |
+| **Raspberry Pi OS (Trixie)** | ARM64 | ext4 | Bash 5.x | ✅ **Tested** |
+| **macOS Sonoma/Ventura** | ARM64/x86_64 | APFS | Bash 4.0+ | ✅ **Full Support** |
+| macOS (default Bash 3.2) | ARM64/x86_64 | APFS | Bash 3.2 | ⚠️ Works with warnings |
+| Debian 13 (Trixie) | x86_64 | ext4/ZFS | Bash 5.x | ✅ Working |
+| Debian 12 (Bookworm) | x86_64 | ext4/ZFS | Bash 5.x | ✅ Working |
+| Ubuntu 24.04+ | x86_64 | ext4/ZFS | Bash 5.x | ✅ Should work |
+| Fedora/RHEL 9 | x86_64 | ext4/xfs/btrfs | Bash 5.x | ✅ Should work |
+| Arch/Manjaro | x86_64 | ext4/btrfs | Bash 5.x | ✅ Should work |
 | Alpine Linux | x86_64 | ext4 | varies | ⚠️ May need tweaks |
 | BSD (FreeBSD/OpenBSD) | x86_64 | UFS/ZFS | varies | ⚠️ Partial support |
 
