@@ -342,7 +342,7 @@ function runReport() {
 // Handle help flag
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log(`
-TR-200 Machine Report v2.0.3
+TR-200 Machine Report v2.0.4
 
 Usage: tr200 [options]
        report [options]
@@ -362,7 +362,7 @@ More info: https://github.com/RealEmmettS/usgc-machine-report
 
 // Handle version flag
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    console.log('2.0.3');
+    console.log('2.0.4');
     process.exit(0);
 }
 

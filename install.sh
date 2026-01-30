@@ -411,21 +411,21 @@ EOF
 fi
 
 # ============================================================================
-# CONFIGURE LOGIN SHELL (.profile/.zprofile for SSH/console login)
+# CONFIGURE LOGIN SHELL (.zprofile for macOS zsh login shells)
 # ============================================================================
 echo ""
 echo "Configuring login shell profiles..."
 
-if [ "$OS_TYPE" = "linux" ]; then
-    LOGIN_PROFILE="$HOME/.profile"
-elif [ "$OS_TYPE" = "macos" ]; then
-    # zsh uses .zprofile for login shells
-    LOGIN_PROFILE="$HOME/.zprofile"
-else
-    LOGIN_PROFILE=""
-fi
+# NOTE: On Linux, we do NOT add to .profile because:
+# 1. .profile typically sources .bashrc on Debian/Ubuntu/Raspberry Pi OS
+# 2. .bashrc already has the auto-run for interactive shells
+# 3. Adding to both causes duplicate reports on SSH login
+#
+# On macOS, zsh does NOT source .zshrc for login shells, so we need .zprofile
 
-if [ -n "$LOGIN_PROFILE" ]; then
+if [ "$OS_TYPE" = "macos" ]; then
+    LOGIN_PROFILE="$HOME/.zprofile"
+
     if grep -q "# TR-200 Machine Report" "$LOGIN_PROFILE" 2>/dev/null; then
         echo "✓ $LOGIN_PROFILE already configured"
     else
@@ -440,6 +440,8 @@ fi
 EOF
         echo "✓ $LOGIN_PROFILE configured"
     fi
+else
+    echo "✓ Linux: .bashrc handles SSH login (via .profile sourcing .bashrc)"
 fi
 
 # Also configure .bash_profile for bash login shells on macOS
