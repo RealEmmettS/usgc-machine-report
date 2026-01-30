@@ -78,6 +78,167 @@ if [ "$BASH_MAJOR" -lt 4 ]; then
 fi
 echo ""
 
+# ============================================================================
+# CLEANUP FUNCTIONS - Remove all previous TR-100/TR-200 installations
+# ============================================================================
+
+# Clean a single profile file of ALL TR-100/TR-200 entries
+# Uses awk for robust multi-line block removal
+clean_profile_file() {
+    local profile="$1"
+
+    if [ ! -f "$profile" ]; then
+        return 1
+    fi
+
+    # Check if any Machine Report markers exist
+    if ! grep -qE "(TR-100|TR-200|Run Machine Report only when in interactive mode|machine_report\.sh|machine_report)" "$profile" 2>/dev/null; then
+        return 2  # No cleanup needed
+    fi
+
+    echo "  Cleaning: $profile"
+    local backup="${profile}.tr-backup"
+    cp "$profile" "$backup"
+
+    # Use awk for robust multi-line block removal
+    awk '
+    BEGIN { skip = 0 }
+
+    # Skip TR-100 block (original upstream pattern)
+    /# Run Machine Report only when in interactive mode/ { skip = 1; next }
+
+    # Skip TR-200 configuration blocks
+    /# TR-200 Machine Report configuration/ { skip = 1; next }
+    /# TR-200 Machine Report - run on login/ { skip = 1; next }
+    /# TR-200 Machine Report - run on bash login/ { skip = 1; next }
+
+    # Skip npm-installed TR-200 block
+    /# TR-200 Machine Report \(npm\) - auto-run/ { skip = 1; next }
+
+    # End of if block (handles indented fi too)
+    skip && /^[[:space:]]*fi[[:space:]]*$/ { skip = 0; next }
+
+    # Skip standalone alias lines (only when not inside a block)
+    !skip && /^[[:space:]]*alias report=.*machine_report/ { next }
+    !skip && /^[[:space:]]*alias uninstall=.*machine_report/ { next }
+
+    # Skip TR-100 style alias comment
+    !skip && /^# Machine Report alias/ { next }
+
+    # Print lines we are not skipping
+    !skip { print }
+    ' "$backup" > "${profile}.tmp"
+
+    # Clean up consecutive blank lines (more than 2 in a row)
+    cat -s "${profile}.tmp" > "$profile"
+    rm -f "${profile}.tmp" "$backup"
+
+    return 0
+}
+
+# Clean all known profile files
+clean_all_profiles() {
+    local profiles=(
+        "$HOME/.bashrc"
+        "$HOME/.zshrc"
+        "$HOME/.profile"
+        "$HOME/.bash_profile"
+        "$HOME/.zprofile"
+    )
+
+    local cleaned=0
+    for profile in "${profiles[@]}"; do
+        if clean_profile_file "$profile"; then
+            cleaned=$((cleaned + 1))
+        fi
+    done
+
+    if [ "$cleaned" -gt 0 ]; then
+        echo "  Cleaned $cleaned profile file(s)"
+    fi
+}
+
+# Remove systemd service (Linux)
+clean_systemd_service() {
+    if [ "$OS_TYPE" != "linux" ]; then
+        return
+    fi
+
+    if ! command -v systemctl &> /dev/null; then
+        return
+    fi
+
+    # Check for TR-200 service
+    local service_file="$HOME/.config/systemd/user/tr200-report.service"
+    if [ -f "$service_file" ]; then
+        echo "  Removing systemd service: tr200-report.service"
+        systemctl --user disable tr200-report.service 2>/dev/null || true
+        systemctl --user stop tr200-report.service 2>/dev/null || true
+        rm -f "$service_file"
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    # Check for potential TR-100 service names
+    for svc_name in "machine-report.service" "machine_report.service"; do
+        local svc_file="$HOME/.config/systemd/user/$svc_name"
+        if [ -f "$svc_file" ]; then
+            echo "  Removing systemd service: $svc_name"
+            systemctl --user disable "$svc_name" 2>/dev/null || true
+            systemctl --user stop "$svc_name" 2>/dev/null || true
+            rm -f "$svc_file"
+            systemctl --user daemon-reload 2>/dev/null || true
+        fi
+    done
+}
+
+# Remove LaunchAgent (macOS)
+clean_launchd_agent() {
+    if [ "$OS_TYPE" != "macos" ]; then
+        return
+    fi
+
+    local agents_dir="$HOME/Library/LaunchAgents"
+
+    # TR-200 plist
+    local tr200_plist="$agents_dir/com.tr200.report.plist"
+    if [ -f "$tr200_plist" ]; then
+        echo "  Removing LaunchAgent: com.tr200.report.plist"
+        launchctl unload "$tr200_plist" 2>/dev/null || true
+        rm -f "$tr200_plist"
+    fi
+
+    # Potential TR-100 plist names
+    for plist_name in "com.usgraphics.machine-report.plist" "com.machine-report.plist"; do
+        local plist="$agents_dir/$plist_name"
+        if [ -f "$plist" ]; then
+            echo "  Removing LaunchAgent: $plist_name"
+            launchctl unload "$plist" 2>/dev/null || true
+            rm -f "$plist"
+        fi
+    done
+}
+
+# Master cleanup function
+perform_full_cleanup() {
+    echo "=========================================="
+    echo "Cleaning Previous Installations"
+    echo "=========================================="
+    echo ""
+    echo "Checking for TR-100/TR-200 configurations..."
+
+    clean_all_profiles
+    clean_systemd_service
+    clean_launchd_agent
+
+    # Remove old backup files
+    rm -f "$HOME/.machine_report.sh.backup"
+    rm -f "$HOME/.machine_report_uninstall.sh"
+
+    echo ""
+    echo "Cleanup complete"
+    echo ""
+}
+
 # Check if script exists in current directory
 if [ ! -f "machine_report.sh" ]; then
     echo "❌ Error: machine_report.sh not found in current directory"
@@ -85,6 +246,11 @@ if [ ! -f "machine_report.sh" ]; then
     echo "   cd ~/git-projects/RealEmmettS-usgc-machine-report && ./install.sh"
     exit 1
 fi
+
+# ============================================================================
+# PERFORM FULL CLEANUP BEFORE INSTALLATION
+# ============================================================================
+perform_full_cleanup
 
 # Install dependencies based on OS
 echo "=========================================="
@@ -200,19 +366,7 @@ BASHRC="$HOME/.bashrc"
 if grep -q "# TR-200 Machine Report" "$BASHRC" 2>/dev/null; then
     echo "✓ .bashrc already configured for TR-200 Machine Report"
 else
-    # Remove any old TR-100 configuration first
-    # TR-100 uses: "# Run Machine Report only when in interactive mode"
-    if grep -q "# Run Machine Report only when in interactive mode" "$BASHRC" 2>/dev/null || \
-       grep -q "# Machine Report alias" "$BASHRC" 2>/dev/null; then
-        echo "  Removing old TR-100/Machine Report configuration from .bashrc..."
-        # Remove TR-100 block: comment + if/fi block
-        sed '/# Run Machine Report only when in interactive mode/,/^fi$/d' "$BASHRC" > "${BASHRC}.tmp" 2>/dev/null || cp "$BASHRC" "${BASHRC}.tmp"
-        # Also remove any other Machine Report lines (but not TR-200)
-        grep -v -E "^(# Machine Report alias|alias report=.*machine_report)" "${BASHRC}.tmp" > "${BASHRC}.tmp2" 2>/dev/null || mv "${BASHRC}.tmp" "${BASHRC}.tmp2"
-        mv "${BASHRC}.tmp2" "$BASHRC"
-        rm -f "${BASHRC}.tmp"
-    fi
-
+    # Note: TR-100/TR-200 cleanup already done by perform_full_cleanup()
     echo "Adding TR-200 Machine Report configuration to $BASHRC..."
     cat >> "$BASHRC" << 'EOF'
 
@@ -238,19 +392,7 @@ if [ -f "$ZSHRC" ] || [ "$OS_TYPE" = "macos" ]; then
     if grep -q "# TR-200 Machine Report" "$ZSHRC" 2>/dev/null; then
         echo "✓ .zshrc already configured for TR-200 Machine Report"
     else
-        # Remove any old TR-100 configuration first
-        # TR-100 uses: "# Run Machine Report only when in interactive mode"
-        if grep -q "# Run Machine Report only when in interactive mode" "$ZSHRC" 2>/dev/null || \
-           grep -q "# Machine Report alias" "$ZSHRC" 2>/dev/null; then
-            echo "  Removing old TR-100/Machine Report configuration from .zshrc..."
-            # Remove TR-100 block: comment + if/fi block
-            sed '/# Run Machine Report only when in interactive mode/,/^fi$/d' "$ZSHRC" > "${ZSHRC}.tmp" 2>/dev/null || cp "$ZSHRC" "${ZSHRC}.tmp"
-            # Also remove any other Machine Report lines (but not TR-200)
-            grep -v -E "^(# Machine Report alias|alias report=.*machine_report)" "${ZSHRC}.tmp" > "${ZSHRC}.tmp2" 2>/dev/null || mv "${ZSHRC}.tmp" "${ZSHRC}.tmp2"
-            mv "${ZSHRC}.tmp2" "$ZSHRC"
-            rm -f "${ZSHRC}.tmp"
-        fi
-
+        # Note: TR-100/TR-200 cleanup already done by perform_full_cleanup()
         echo "Adding TR-200 Machine Report configuration to $ZSHRC..."
         cat >> "$ZSHRC" << 'EOF'
 
@@ -529,6 +671,23 @@ if [ -x "$TARGET_FILE" ]; then
 else
     echo "❌ Error: Script is not executable"
     exit 1
+fi
+
+# ============================================================================
+# VALIDATE INSTALLATION
+# ============================================================================
+echo ""
+echo "Validating cleanup..."
+tr100_found=0
+for profile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.zprofile"; do
+    if [ -f "$profile" ] && grep -q "# Run Machine Report only when in interactive mode" "$profile" 2>/dev/null; then
+        echo "  ⚠ Warning: TR-100 markers still in $profile"
+        tr100_found=1
+    fi
+done
+
+if [ "$tr100_found" -eq 0 ]; then
+    echo "✓ Validation passed - no TR-100 markers found"
 fi
 
 echo ""

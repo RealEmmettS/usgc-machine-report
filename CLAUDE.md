@@ -362,7 +362,7 @@ npm unlink -g tr200
 
 - **Upstream:** usgraphics/usgc-machine-report (original)
 - **This repo:** RealEmmettS/usgc-machine-report (enhanced)
-- **Current version:** v2.0.2 (2026-01-30) - Fix TR-100 cleanup in bash installer
+- **Current version:** v2.0.3 (2026-01-30) - Comprehensive TR-100/TR-200 cleanup logic
 - **npm package:** https://www.npmjs.com/package/tr200
 
 ## License

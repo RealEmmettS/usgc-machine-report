@@ -43,6 +43,129 @@ if (-not (Test-Path $sourceScript)) {
     exit 1
 }
 
+# ============================================================================
+# CLEANUP FUNCTIONS - Remove all previous TR-100/TR-200 installations
+# ============================================================================
+
+function Remove-TR100Installation {
+    <#
+    .SYNOPSIS
+        Removes any TR-100 (original upstream) artifacts.
+    .DESCRIPTION
+        TR-100 never had official Windows support, but users may have manual configs.
+    #>
+    Write-Host '  Checking for TR-100 artifacts...'
+
+    # Check for any TR-100 markers in PowerShell profiles
+    $profilePaths = @(
+        $PROFILE.CurrentUserAllHosts,
+        $PROFILE.CurrentUserCurrentHost,
+        (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'),
+        (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
+    ) | Where-Object { $_ } | Select-Object -Unique
+
+    foreach ($profilePath in $profilePaths) {
+        if (Test-Path $profilePath) {
+            $content = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
+            if ($content) {
+                # Look for TR-100 patterns (from upstream)
+                if ($content -match 'Run Machine Report only when in interactive mode' -or
+                    $content -match 'TR-100 Machine Report' -or
+                    ($content -match 'machine_report' -and $content -notmatch 'TR-200')) {
+                    Write-Host "  Cleaning TR-100 markers from: $profilePath"
+                    # Remove TR-100 style blocks
+                    $newContent = $content -replace '(?s)# Run Machine Report only when in interactive mode.*?}\r?\n?', ''
+                    $newContent = $newContent -replace '(?s)# TR-100 Machine Report.*?}\r?\n?', ''
+                    Set-Content $profilePath $newContent.Trim() -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+}
+
+function Remove-TR200Installation {
+    <#
+    .SYNOPSIS
+        Removes existing TR-200 installation to allow clean reinstall.
+    #>
+    Write-Host '  Checking for existing TR-200 installation...'
+
+    $installDir = Join-Path $HOME 'TR200'
+    $taskName = 'TR200-MachineReport'
+
+    # Remove scheduled task
+    try {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Write-Host "  Removing scheduled task: $taskName"
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        }
+    } catch { }
+
+    # Clean PowerShell profile
+    $profilePaths = @(
+        $PROFILE.CurrentUserAllHosts,
+        $PROFILE.CurrentUserCurrentHost,
+        (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'),
+        (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
+    ) | Where-Object { $_ } | Select-Object -Unique
+
+    foreach ($profilePath in $profilePaths) {
+        if (Test-Path $profilePath) {
+            $content = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content -match 'TR-200 Machine Report') {
+                Write-Host "  Cleaning TR-200 from profile: $profilePath"
+                # Remove TR-200 configuration block
+                $pattern = '(?s)# >>> TR-200 Machine Report configuration >>>.*?# <<< TR-200 Machine Report configuration <<<\r?\n?'
+                $newContent = $content -replace $pattern, ''
+                # Also remove npm-style TR-200 blocks
+                $newContent = $newContent -replace '(?s)# TR-200 Machine Report \(npm\) - auto-run.*?}\r?\n?', ''
+                Set-Content $profilePath $newContent.Trim() -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    # Remove from PATH (will be re-added during install)
+    try {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        if ($userPath -and $userPath -match 'TR200') {
+            $newPath = ($userPath.Split(';') | Where-Object { $_ -notlike '*TR200*' -and $_ -ne '' }) -join ';'
+            [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+            Write-Host '  Cleaned TR200 from user PATH'
+        }
+    } catch { }
+
+    # Remove install directory contents (but keep directory for fresh install)
+    if (Test-Path $installDir) {
+        Write-Host "  Removing existing files from: $installDir"
+        Remove-Item -Path "$installDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-FullCleanup {
+    <#
+    .SYNOPSIS
+        Master cleanup function - removes all TR-100 and TR-200 artifacts.
+    #>
+    Write-Host '=========================================='
+    Write-Host 'Cleaning Previous Installations'
+    Write-Host '=========================================='
+    Write-Host ''
+    Write-Host 'Checking for TR-100/TR-200 configurations...'
+
+    Remove-TR100Installation
+    Remove-TR200Installation
+
+    Write-Host ''
+    Write-Host 'Cleanup complete'
+    Write-Host ''
+}
+
+# ============================================================================
+# PERFORM FULL CLEANUP BEFORE INSTALLATION
+# ============================================================================
+Invoke-FullCleanup
+
 # Choose install directory under the user profile so both PowerShell and Cmd can see it
 $home = $HOME
 if (-not $home) { $home = $env:USERPROFILE }

@@ -35,6 +35,63 @@ if (Get-Command tr200 -ErrorAction SilentlyContinue) {
 }
 `;
 
+// All patterns to detect (TR-100 and TR-200 variants)
+const ALL_MARKERS = [
+    'TR-200 Machine Report (npm)',       // npm-installed
+    'TR-200 Machine Report configuration', // install.sh installed
+    'TR-200 Machine Report - run on login', // .profile/.zprofile
+    'TR-200 Machine Report - run on bash login', // .bash_profile
+    'Run Machine Report only when in interactive mode', // TR-100 (original upstream)
+    'TR-100 Machine Report',             // TR-100 header
+    '# Machine Report alias',            // TR-100 alias marker
+];
+
+// Clean a profile file of ALL TR-100/TR-200 entries
+function cleanProfileFile(filePath) {
+    if (!fs.existsSync(filePath)) return false;
+
+    let content = fs.readFileSync(filePath, 'utf8');
+    const originalContent = content;
+
+    // Check if any markers exist
+    const hasMarkers = ALL_MARKERS.some(marker => content.includes(marker));
+    if (!hasMarkers && !content.includes('machine_report')) {
+        return false;
+    }
+
+    // Remove npm-style TR-200 blocks (Unix)
+    content = content.replace(/\n?# TR-200 Machine Report \(npm\) - auto-run\nif command -v tr200 &> \/dev\/null; then\n    tr200\nfi\n?/g, '');
+
+    // Remove npm-style TR-200 blocks (PowerShell)
+    content = content.replace(/\n?# TR-200 Machine Report \(npm\) - auto-run\nif \(Get-Command tr200 -ErrorAction SilentlyContinue\) \{\n    tr200\n\}\n?/g, '');
+
+    // Remove install.sh TR-200 blocks (matches the full block including aliases)
+    content = content.replace(/\n?# TR-200 Machine Report configuration\nalias report=.*\nalias uninstall=.*\n\n?# Auto-run on interactive (?:bash|zsh) shell.*\nif \[\[.*\]\]; then\n    clear\n    ~\/.machine_report\.sh\nfi\n?/g, '');
+
+    // Remove TR-200 login blocks (.profile/.zprofile/.bash_profile)
+    content = content.replace(/\n?# TR-200 Machine Report - run on (?:login|bash login).*\nif \[ -x "\$HOME\/.machine_report\.sh" \]; then\n    clear\n    "\$HOME\/.machine_report\.sh"\nfi\n?/g, '');
+
+    // Remove TR-100 blocks (original upstream pattern)
+    content = content.replace(/\n?# Run Machine Report only when in interactive mode\nif \[\[ \$- == \*i\* \]\]; then\n    ~\/.machine_report\.sh\nfi\n?/g, '');
+
+    // Remove any stray alias lines
+    content = content.replace(/\n?alias report=.*machine_report.*\n?/g, '\n');
+    content = content.replace(/\n?alias uninstall=.*machine_report.*\n?/g, '\n');
+
+    // Remove TR-100 alias marker
+    content = content.replace(/\n?# Machine Report alias\n?/g, '\n');
+
+    // Clean up excessive blank lines (more than 2 consecutive)
+    content = content.replace(/\n{3,}/g, '\n\n');
+    content = content.trim();
+
+    if (content !== originalContent.trim()) {
+        fs.writeFileSync(filePath, content + '\n', 'utf8');
+        return true;
+    }
+    return false;
+}
+
 // Shell profile paths
 function getProfilePaths() {
     if (isWindows) {
@@ -70,11 +127,19 @@ function askConfirmation(question) {
     });
 }
 
-// Check if config already exists in file
+// Check if npm config already exists in file
 function hasConfig(filePath) {
     if (!fs.existsSync(filePath)) return false;
     const content = fs.readFileSync(filePath, 'utf8');
     return content.includes(CONFIG_MARKER);
+}
+
+// Check if ANY TR-100/TR-200 config exists (for cleanup detection)
+function hasAnyConfig(filePath) {
+    if (!fs.existsSync(filePath)) return false;
+    const content = fs.readFileSync(filePath, 'utf8');
+    return ALL_MARKERS.some(marker => content.includes(marker)) ||
+           content.includes('machine_report');
 }
 
 // Install auto-run to shell profiles
@@ -94,11 +159,25 @@ async function installAutoRun() {
         process.exit(0);
     }
 
+    // First, clean up any existing TR-100/TR-200 configurations
+    console.log('Cleaning previous installations...');
+    let cleaned = 0;
+    for (const profilePath of profiles) {
+        if (cleanProfileFile(profilePath)) {
+            console.log(`  [cleaned] ${profilePath}`);
+            cleaned++;
+        }
+    }
+    if (cleaned > 0) {
+        console.log(`  Cleaned ${cleaned} profile(s)`);
+    }
+    console.log('');
+
     let installed = 0;
     let skipped = 0;
 
     for (const profilePath of profiles) {
-        // Check if already configured
+        // Check if already configured (with npm marker specifically)
         if (hasConfig(profilePath)) {
             console.log(`  [skip] ${profilePath} - already configured`);
             skipped++;
@@ -136,7 +215,7 @@ async function uninstallAutoRun() {
     const profiles = getProfilePaths();
 
     console.log('\nTR-200 Machine Report - Remove Auto-Run\n');
-    console.log('This will remove the auto-run configuration from your shell profile(s).');
+    console.log('This will remove ALL TR-100/TR-200 configurations from your shell profile(s).');
     console.log('Profile(s) to check:');
     profiles.forEach(p => console.log(`  - ${p}`));
     console.log('');
@@ -154,27 +233,10 @@ async function uninstallAutoRun() {
             continue;
         }
 
-        const content = fs.readFileSync(profilePath, 'utf8');
-        if (!content.includes(CONFIG_MARKER)) {
-            continue;
-        }
-
-        // Remove the config block (handles both Unix and PowerShell formats)
-        // Match from the comment line through the closing fi/}
-        const unixPattern = /\n?# TR-200 Machine Report \(npm\) - auto-run\nif command -v tr200 &> \/dev\/null; then\n    tr200\nfi\n?/g;
-        const psPattern = /\n?# TR-200 Machine Report \(npm\) - auto-run\nif \(Get-Command tr200 -ErrorAction SilentlyContinue\) \{\n    tr200\n\}\n?/g;
-
-        let newContent = content.replace(unixPattern, '');
-        newContent = newContent.replace(psPattern, '');
-
-        if (newContent !== content) {
-            try {
-                fs.writeFileSync(profilePath, newContent, 'utf8');
-                console.log(`  [done] ${profilePath}`);
-                removed++;
-            } catch (err) {
-                console.error(`  [error] ${profilePath}: ${err.message}`);
-            }
+        // Use the comprehensive cleanup function
+        if (cleanProfileFile(profilePath)) {
+            console.log(`  [done] ${profilePath}`);
+            removed++;
         }
     }
 
@@ -280,7 +342,7 @@ function runReport() {
 // Handle help flag
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log(`
-TR-200 Machine Report v2.0.1
+TR-200 Machine Report v2.0.3
 
 Usage: tr200 [options]
        report [options]
@@ -300,7 +362,7 @@ More info: https://github.com/RealEmmettS/usgc-machine-report
 
 // Handle version flag
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    console.log('2.0.2');
+    console.log('2.0.3');
     process.exit(0);
 }
 
