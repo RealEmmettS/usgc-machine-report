@@ -80,45 +80,55 @@ If your system is different, things might break. Look up the offending line and 
 npm install -g tr200
 ```
 
-**That's it!** Now you can run:
-
+**Run on-demand:**
 ```bash
 tr200
 # or
 report
 ```
 
-**Requirements:**
-- Node.js 14.0.0 or later
-- bash (Linux/macOS) or PowerShell (Windows)
+**Set up auto-run on terminal startup:**
+```bash
+tr200 --install
+```
 
-**What this does:**
-- Downloads the TR-200 package from npm
-- Creates global `tr200` and `report` commands
-- Automatically detects your OS and runs the appropriate script
+**Remove auto-run:**
+```bash
+tr200 --uninstall
+```
 
-**Note:** The npm version is for on-demand use. If you want TR-200 to auto-run on terminal startup, use one of the install scripts below instead.
+**Completely uninstall:**
+```bash
+tr200 --uninstall
+npm uninstall -g tr200
+```
+
+**Requirements:** Node.js 14.0.0 or later
 
 ---
 
-## ⚡ Super Quick Install (install.sh)
+## Quick Reference
 
-**Simplest method - fully automated!**
+| Command | Description |
+|---------|-------------|
+| `tr200` | Run the machine report |
+| `tr200 --help` | Show help |
+| `tr200 --version` | Show version |
+| `tr200 --install` | Set up auto-run on terminal startup |
+| `tr200 --uninstall` | Remove auto-run configuration |
+
+---
+
+## ⚡ Alternative: install.sh (No Node.js Required)
+
+**For users without Node.js:**
 
 ```bash
 cd ~/git-projects && gh repo clone RealEmmettS/usgc-machine-report && \
 cd RealEmmettS-usgc-machine-report && ./install.sh
 ```
 
-The `install.sh` script handles everything:
-- Detects your OS and architecture
-- Installs dependencies (lastlog2)
-- Backs up existing installations
-- Copies and configures the script
-- Tests everything works
-- Sets up the `report` alias
-
-**That's it! Type `report` or open a new terminal to see it in action.**
+The `install.sh` script handles everything: OS detection, dependency installation, backup, configuration, and auto-run setup.
 
 ---
 
@@ -146,191 +156,13 @@ The script creates `dist/tr-200-machine-report.zip` containing the launchers, `m
 
 ---
 
-## 🤖 Claude Code Automated Installation
-
-**Best for:** Using with [Claude Code](https://claude.ai/code) AI assistant
+## 🤖 Claude Code Installation
 
 Ask Claude Code:
 
 ```
-Install usgc-machine-report from RealEmmettS/usgc-machine-report using install.sh
+npm install -g tr200 && tr200 --install
 ```
-
-Or provide these specific instructions:
-
-```bash
-cd ~/git-projects && \
-gh repo clone RealEmmettS/usgc-machine-report && \
-cd RealEmmettS-usgc-machine-report && \
-./install.sh
-```
-
-Claude Code will automatically:
-1. Clone this repository
-2. Install `lastlog2` if on Debian/Raspberry Pi OS
-3. Copy script to `~/.machine_report.sh`
-4. Add to `.bashrc` with automatic run on login
-5. Create convenient `report` alias
-
-**Or provide these specific instructions to Claude Code:**
-
-```bash
-# 1. Clone the repository
-cd ~/git-projects
-gh repo clone RealEmmettS/usgc-machine-report
-
-# 2. Install dependencies (Debian/Ubuntu/Raspberry Pi OS)
-sudo apt install -y lastlog2
-
-# 3. Install the script
-cp ~/git-projects/RealEmmettS-usgc-machine-report/machine_report.sh ~/.machine_report.sh
-chmod +x ~/.machine_report.sh
-
-# 4. Add to .bashrc
-cat >> ~/.bashrc << 'EOF'
-
-# Machine Report alias - run anytime with 'report' command
-alias report='~/.machine_report.sh'
-
-# Run Machine Report only when in interactive mode
-if [[ $- == *i* ]]; then
-    ~/.machine_report.sh
-fi
-EOF
-
-# 5. Test installation
-~/.machine_report.sh
-```
-
----
-
-## 🍎 macOS Installation
-
-**Requirements:**
-- macOS 10.13 (High Sierra) or later
-- Bash 4.0+ recommended (install via `brew install bash`)
-
-**Quick Install:**
-
-```bash
-cd ~/git-projects && gh repo clone RealEmmettS/usgc-machine-report && \
-cd RealEmmettS-usgc-machine-report && ./install.sh
-```
-
-**What works on macOS:**
-- ✅ OS version detection (via `sw_vers`)
-- ✅ CPU info (via `sysctl`)
-- ✅ Memory usage (via `vm_stat`)
-- ✅ Disk usage (via `df`)
-- ✅ Network info (via `scutil`)
-- ✅ System uptime (calculated from boot time)
-- ⚠️ Last login may show "unavailable" (macOS limitation)
-
-**macOS-Specific Notes:**
-- No package installation needed - uses built-in commands
-- Default Bash 3.2 works but Bash 4+ recommended
-- To install newer Bash: `brew install bash`
-- Script automatically detects macOS and uses appropriate commands
-
-### 🐚 zsh Installation (macOS Default Shell)
-
-**Modern macOS (Catalina 10.15+) uses zsh by default**, not bash. If you're using zsh, follow these instructions:
-
-**Quick Install for zsh:**
-
-```bash
-# Clone and install the script
-cd ~/Downloads && git clone https://github.com/RealEmmettS/usgc-machine-report.git && \
-cp ~/Downloads/usgc-machine-report/machine_report.sh ~/.machine_report.sh && \
-chmod +x ~/.machine_report.sh
-
-# Add to .zshrc (not .bashrc!)
-cat >> ~/.zshrc << 'EOF'
-
-# Machine Report alias - run anytime with 'report' command
-alias report='~/.machine_report.sh'
-
-# Run Machine Report only when in interactive mode
-if [[ $- == *i* ]]; then
-    ~/.machine_report.sh
-fi
-EOF
-
-# Clean up cloned repo (optional)
-rm -rf ~/Downloads/usgc-machine-report
-
-echo "✅ Installation complete! Open a new terminal or type: source ~/.zshrc"
-```
-
-**Important zsh Notes:**
-- ✅ Use `~/.zshrc` instead of `~/.bashrc`
-- ✅ The script works identically in zsh - no code changes needed
-- ✅ Test with: `zsh -c "source ~/.zshrc && report"`
-- ℹ️ To check your shell: `echo $SHELL` (should show `/bin/zsh`)
-
----
-
-## 📦 Quick Install (Manual - Raspberry Pi OS / Debian)
-
-**One-liner installation:**
-
-```bash
-cd ~/git-projects && gh repo clone RealEmmettS/usgc-machine-report && \
-sudo apt install -y lastlog2 && \
-cp ~/git-projects/RealEmmettS-usgc-machine-report/machine_report.sh ~/.machine_report.sh && \
-chmod +x ~/.machine_report.sh && \
-cat >> ~/.bashrc << 'EOF'
-
-# Machine Report alias - run anytime with 'report' command
-alias report='~/.machine_report.sh'
-
-# Run Machine Report only when in interactive mode
-if [[ $- == *i* ]]; then
-    ~/.machine_report.sh
-fi
-EOF
-echo "✅ Installation complete! Type 'report' or open a new terminal."
-```
-
-**Step-by-step installation:**
-
-1. **Clone the repository**:
-   ```bash
-   cd ~/git-projects
-   gh repo clone RealEmmettS/usgc-machine-report
-   ```
-
-2. **Install dependencies** (for modern Debian/Raspberry Pi OS):
-   ```bash
-   sudo apt install -y lastlog2
-   ```
-
-   *Note: On systems with the legacy `lastlog` command, this step is optional. The script automatically detects and uses whichever is available.*
-
-3. **Copy the script to your home directory**:
-   ```bash
-   cp ~/git-projects/RealEmmettS-usgc-machine-report/machine_report.sh ~/.machine_report.sh
-   chmod +x ~/.machine_report.sh
-   ```
-
-4. **Add to `.bashrc` for automatic display on login**:
-   ```bash
-   cat >> ~/.bashrc << 'EOF'
-
-# Machine Report alias - run anytime with 'report' command
-alias report='~/.machine_report.sh'
-
-# Run Machine Report only when in interactive mode
-if [[ $- == *i* ]]; then
-    ~/.machine_report.sh
-fi
-EOF
-   ```
-
-5. **Test the installation**:
-   ```bash
-   ~/.machine_report.sh
-   ```
 
 ---
 
@@ -431,6 +263,24 @@ For ZFS systems, edit:
 ---
 
 ## 📝 Changelog (Fork-specific)
+
+### v2.0.1 (2026-01-30) - **INSTALL FLAGS + PS 5.1 FIXES**
+**New CLI Flags + PowerShell Compatibility**
+
+- ✨ **`--install` flag**: Set up auto-run on terminal startup via npm
+- ✨ **`--uninstall` flag**: Remove auto-run configuration cleanly
+- ✨ **`--help` flag**: Show usage information (all scripts)
+- ✨ **`--version` flag**: Show version information (all scripts)
+- 🔧 **PowerShell 5.1 compatibility**: Fixed `[System.Net.Dns]::GetHostName()` and null-conditional operators
+- 📚 **Simplified README**: npm + `--install` promoted as primary installation method
+
+**Upgrade path:**
+```bash
+npm update -g tr200
+tr200 --install  # Re-run to update shell config if needed
+```
+
+---
 
 ### v2.0.0 (2026-01-30) - **SHAUGHV REBRAND + NPM RELEASE**
 **Complete Rebrand + Auto-Run Enhancements + npm Publishing**
