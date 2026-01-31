@@ -1,4 +1,4 @@
-# TR-200 Machine Report
+# [TR-200 Machine Report](https://tr200.emmetts.dev)
 SKU: [TR-200](https://tr200.emmetts.dev), filed under Technical Reports (TR).
 
 ## What is it?
